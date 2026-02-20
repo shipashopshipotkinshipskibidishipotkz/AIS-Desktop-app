@@ -301,3 +301,18 @@ class OrdersTab(QWidget):
             if success: d.close()
             
         self.load_data()
+
+    def delete_order(self, order_id):
+        order = next((o for o in self.controller.get_all() if o.id == order_id), None)
+        if not order: 
+            return
+        if order.status in ["В пути", "Новый"]:
+            QMessageBox.warning(self, "Блокировка удаления", "Нельзя удалить активный заказ!")
+            return
+
+        reply = QMessageBox.question(self, "Удаление", f"Вы уверены, что хотите удалить заказ #{order.id}?",
+                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                                     
+        if reply == QMessageBox.StandardButton.Yes:
+            self.controller.delete(order_id)
+            self.load_data()

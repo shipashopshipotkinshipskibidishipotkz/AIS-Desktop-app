@@ -5,7 +5,6 @@ from database.models import Base, User, Client, Vehicle, WarehouseZone, Order, S
 import hashlib
 import random
 
-# Создаем движок
 engine = create_engine(DATABASE_URL, echo=False)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
