@@ -1,0 +1,5 @@
+PyQt6
+sqlalchemy
+psycopg2-binary
+fpdf2
+PyQt6-Charts
