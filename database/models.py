@@ -28,7 +28,6 @@ class Vehicle(Base):
     plate_number = Column(String, unique=True, nullable=False)
     model = Column(String)
     
-    # НОВЫЕ ПОЛЯ ИЗ ТЕХНИЧЕСКОГО ПРОЕКТА:
     vehicle_type = Column(String, default="Грузовой") 
     capacity = Column(Float, default=0.0)             
     
