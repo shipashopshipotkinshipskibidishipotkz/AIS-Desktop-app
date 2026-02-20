@@ -90,17 +90,31 @@ class ReportsTab(QWidget):
 
         try:
             pdf = PDFService()
+            start_date = self.date_from.date().toPyDate()
+            end_date = self.date_to.date().toPyDate()
+            
             if r_type == 'income':
-                orders = OrdersController().get_all()
-                pdf.generate_income_report(orders, file_path)
+                all_orders = OrdersController().get_all()
+                filtered_orders = [
+                    o for o in all_orders 
+                    if o.created_at and start_date <= o.created_at.date() <= end_date
+                ]
+                pdf.generate_income_report(filtered_orders, file_path)
+                
             elif r_type == 'delivered':
-                orders = OrdersController().get_all()
-                pdf.generate_delivered_report(orders, file_path)
+                all_orders = OrdersController().get_all()
+                filtered_orders = [
+                    o for o in all_orders 
+                    if o.created_at and start_date <= o.created_at.date() <= end_date and o.status == "Доставлен"
+                ]
+                pdf.generate_delivered_report(filtered_orders, file_path)
+                
             elif r_type == 'transport':
                 vehicles = TransportController().get_all()
                 pdf.generate_transport_load_report(vehicles, file_path)
             
             QMessageBox.information(self, "Готово", "Отчет успешно сформирован!")
-            os.startfile(file_path)
+            os.startfile(file_path) 
+            
         except Exception as e:
             QMessageBox.critical(self, "Ошибка", f"Ошибка генерации отчета: {str(e)}")

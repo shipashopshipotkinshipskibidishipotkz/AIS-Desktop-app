@@ -68,6 +68,7 @@ class WarehouseTab(QWidget):
             
             name_item = QTableWidgetItem(z.name)
             name_item.setForeground(Qt.GlobalColor.blue)
+            name_item.setToolTip(f"Тип груза: {z.cargo_type or 'Пусто'}\nЗанято: {z.occupied} из {z.capacity} кг")
             self.table.setItem(i, 1, name_item)
             
             self.table.setItem(i, 2, QTableWidgetItem(z.cargo_type or "-"))
