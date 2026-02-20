@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, 
                              QPushButton, QHeaderView, QDialog, QFormLayout, QLineEdit, 
-                             QMessageBox, QComboBox, QHBoxLayout, QLabel)
+                             QMessageBox, QComboBox, QHBoxLayout, QLabel, QDoubleSpinBox)
 from PyQt6.QtCore import Qt
 from controllers.transport_controller import TransportController
 
@@ -19,20 +19,31 @@ class TransportTab(QWidget):
         header.setStyleSheet("font-size: 24px; font-weight: bold; color: #1E293B; margin-bottom: 10px;")
         layout.addWidget(header)
 
-        # Фильтр по статусу
+        # Фильтры
         filter_layout = QHBoxLayout()
+        
+        self.type_filter = QComboBox()
+        self.type_filter.addItems(["Все типы", "Грузовой", "Легковой", "Спецтехника"])
+        self.type_filter.currentTextChanged.connect(self.load_data)
+        self.type_filter.setFixedWidth(150)
+        
         self.status_filter = QComboBox()
         self.status_filter.addItems(["Все статусы", "Свободен", "В работе", "На ремонте"])
         self.status_filter.currentTextChanged.connect(self.load_data)
-        self.status_filter.setFixedWidth(200)
+        self.status_filter.setFixedWidth(150)
+        
+        filter_layout.addWidget(QLabel("Тип:"))
+        filter_layout.addWidget(self.type_filter)
+        filter_layout.addSpacing(10)
+        filter_layout.addWidget(QLabel("Статус:"))
         filter_layout.addWidget(self.status_filter)
         filter_layout.addStretch()
         layout.addLayout(filter_layout)
 
         # Таблица
         self.table = QTableWidget()
-        self.table.setColumnCount(5)
-        self.table.setHorizontalHeaderLabels(["ID", "Госномер", "Модель", "Статус", "Водитель"])
+        self.table.setColumnCount(7)
+        self.table.setHorizontalHeaderLabels(["ID", "Госномер", "Модель", "Тип ТС", "Тоннаж", "Статус", "Водитель"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.verticalHeader().setVisible(False)
@@ -40,7 +51,7 @@ class TransportTab(QWidget):
         self.table.verticalHeader().setDefaultSectionSize(45) 
         layout.addWidget(self.table)
 
-        # Кнопки действий
+        # Кнопки
         btn_layout = QHBoxLayout()
         
         self.btn_add = QPushButton("➕ Добавить ТС")
@@ -76,14 +87,8 @@ class TransportTab(QWidget):
         lbl = QLabel(text)
         lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl.setObjectName("StatusBadge")
-        
-        status_map = {
-            "Свободен": "Done",     
-            "В работе": "Work",     
-            "На ремонте": "Error"   
-        }
+        status_map = {"Свободен": "Done", "В работе": "Work", "На ремонте": "Error"}
         lbl.setProperty("status", status_map.get(text, "New")) 
-        
         widget = QWidget()
         l = QHBoxLayout(widget)
         l.setContentsMargins(10, 2, 10, 2)
@@ -93,10 +98,12 @@ class TransportTab(QWidget):
     def load_data(self):
         vehicles = self.controller.get_all()
         status_filter = self.status_filter.currentText()
+        type_filter = self.type_filter.currentText()
         
         filtered = []
         for v in vehicles:
-            if status_filter == "Все статусы" or v.status == status_filter:
+            if (status_filter == "Все статусы" or v.status == status_filter) and \
+               (type_filter == "Все типы" or v.vehicle_type == type_filter):
                 filtered.append(v)
         
         self.table.setRowCount(len(filtered))
@@ -108,11 +115,13 @@ class TransportTab(QWidget):
             self.table.setItem(i, 1, plate_item)
             
             self.table.setItem(i, 2, QTableWidgetItem(v.model))
+            self.table.setItem(i, 3, QTableWidgetItem(v.vehicle_type or "Грузовой"))
+            self.table.setItem(i, 4, QTableWidgetItem(f"{v.capacity or 0.0} т."))
             
-            self.table.setCellWidget(i, 3, self.create_status_badge(v.status))
+            self.table.setCellWidget(i, 5, self.create_status_badge(v.status))
             
             d_name = f"{v.driver.surname} {v.driver.name}" if v.driver else "Не назначен"
-            self.table.setItem(i, 4, QTableWidgetItem(d_name))
+            self.table.setItem(i, 6, QTableWidgetItem(d_name))
 
     def open_add_dialog(self):
         d = QDialog(self)
@@ -121,6 +130,13 @@ class TransportTab(QWidget):
         
         plate = QLineEdit()
         model = QLineEdit()
+        
+        v_type = QComboBox()
+        v_type.addItems(["Грузовой", "Легковой", "Спецтехника"])
+        
+        capacity = QDoubleSpinBox()
+        capacity.setMaximum(100.0)
+        
         status = QComboBox()
         status.addItems(["Свободен", "В работе", "На ремонте"])
         
@@ -132,17 +148,19 @@ class TransportTab(QWidget):
             
         f.addRow("Госномер:", plate)
         f.addRow("Модель:", model)
+        f.addRow("Тип ТС:", v_type)
+        f.addRow("Грузоподъемность (т):", capacity)
         f.addRow("Статус:", status)
         f.addRow("Водитель:", driver_cb)
         
         btn = QPushButton("Сохранить")
         btn.setObjectName("PrimaryButton")
-        btn.clicked.connect(lambda: self.save_transport(d, plate.text(), model.text(), status.currentText(), driver_cb.currentData()))
+        btn.clicked.connect(lambda: self.save_transport(d, plate.text(), model.text(), v_type.currentText(), capacity.value(), status.currentText(), driver_cb.currentData()))
         f.addRow(btn)
         d.exec()
 
-    def save_transport(self, d, plate, model, status, driver_id):
-        success, msg = self.controller.add(plate, model, status, driver_id)
+    def save_transport(self, d, plate, model, v_type, cap, status, driver_id):
+        success, msg = self.controller.add(plate, model, v_type, cap, status, driver_id)
         if success:
             d.close()
             self.load_data()
@@ -151,13 +169,10 @@ class TransportTab(QWidget):
 
     def open_edit_dialog(self):
         row = self.table.currentRow()
-        if row < 0:
-            QMessageBox.warning(self, "Внимание", "Выберите строку для редактирования")
-            return
+        if row < 0: return QMessageBox.warning(self, "Внимание", "Выберите строку для редактирования")
             
         v_id = int(self.table.item(row, 0).text())
-        vehicles = self.controller.get_all()
-        vehicle = next((v for v in vehicles if v.id == v_id), None)
+        vehicle = next((v for v in self.controller.get_all() if v.id == v_id), None)
         if not vehicle: return
 
         d = QDialog(self)
@@ -166,6 +181,14 @@ class TransportTab(QWidget):
         
         plate = QLineEdit(vehicle.plate_number)
         model = QLineEdit(vehicle.model)
+        
+        v_type = QComboBox()
+        v_type.addItems(["Грузовой", "Легковой", "Спецтехника"])
+        v_type.setCurrentText(vehicle.vehicle_type or "Грузовой")
+        
+        capacity = QDoubleSpinBox()
+        capacity.setMaximum(100.0)
+        capacity.setValue(vehicle.capacity or 0.0)
         
         status = QComboBox()
         status.addItems(["Свободен", "В работе", "На ремонте"])
@@ -183,17 +206,19 @@ class TransportTab(QWidget):
             
         f.addRow("Госномер:", plate)
         f.addRow("Модель:", model)
+        f.addRow("Тип ТС:", v_type)
+        f.addRow("Грузоподъемность (т):", capacity)
         f.addRow("Статус:", status)
         f.addRow("Водитель:", driver_cb)
         
         btn = QPushButton("Обновить")
         btn.setObjectName("PrimaryButton")
-        btn.clicked.connect(lambda: self.update_transport(d, v_id, plate.text(), model.text(), status.currentText(), driver_cb.currentData()))
+        btn.clicked.connect(lambda: self.update_transport(d, v_id, plate.text(), model.text(), v_type.currentText(), capacity.value(), status.currentText(), driver_cb.currentData()))
         f.addRow(btn)
         d.exec()
 
-    def update_transport(self, d, v_id, plate, model, status, driver_id):
-        success, msg = self.controller.update(v_id, plate, model, status, driver_id)
+    def update_transport(self, d, v_id, plate, model, v_type, cap, status, driver_id):
+        success, msg = self.controller.update(v_id, plate, model, v_type, cap, status, driver_id)
         if success:
             d.close()
             self.load_data()
@@ -203,10 +228,6 @@ class TransportTab(QWidget):
     def delete_transport(self):
         row = self.table.currentRow()
         if row >= 0:
-            msg = QMessageBox.question(self, "Удаление", "Удалить транспорт?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-            if msg == QMessageBox.StandardButton.Yes:
-                v_id = int(self.table.item(row, 0).text())
-                self.controller.delete(v_id)
+            if QMessageBox.question(self, "Удаление", "Удалить транспорт?") == QMessageBox.StandardButton.Yes:
+                self.controller.delete(int(self.table.item(row, 0).text()))
                 self.load_data()
-        else:
-             QMessageBox.warning(self, "Внимание", "Выберите строку для удаления")

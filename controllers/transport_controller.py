@@ -21,14 +21,21 @@ class TransportController:
         finally:
             db.close()
 
-    def add(self, plate, model, status, driver_id):
+    def add(self, plate, model, vehicle_type, capacity, status, driver_id):
         if not BusinessService.validate_plate(plate): return False, "Неверный формат госномера (Пример: А123ВС77)."
         if not BusinessService.validate_vehicle_model(model): return False, "Модель не может быть пустой или длиннее 50 симв."
 
         db = get_db()
         try:
             d_id = driver_id if driver_id != -1 else None
-            new_v = Vehicle(plate_number=plate.upper(), model=model, status=status, driver_id=d_id)
+            new_v = Vehicle(
+                plate_number=plate.upper(), 
+                model=model, 
+                vehicle_type=vehicle_type,
+                capacity=float(capacity),
+                status=status, 
+                driver_id=d_id
+            )
             db.add(new_v)
             db.commit()
             return True, "Транспорт добавлен."
@@ -37,7 +44,7 @@ class TransportController:
             return False, "Ошибка: Госномер уже существует."
         finally: db.close()
 
-    def update(self, v_id, plate, model, status, driver_id):
+    def update(self, v_id, plate, model, vehicle_type, capacity, status, driver_id):
         if not BusinessService.validate_plate(plate): return False, "Неверный формат госномера."
         
         db = get_db()
@@ -46,6 +53,8 @@ class TransportController:
             if v:
                 v.plate_number = plate.upper()
                 v.model = model
+                v.vehicle_type = vehicle_type
+                v.capacity = float(capacity)
                 v.status = status
                 v.driver_id = driver_id if driver_id != -1 else None
                 db.commit()

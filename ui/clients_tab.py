@@ -46,6 +46,11 @@ class ClientsTab(QWidget):
         self.btn_edit = QPushButton("✏ Редактировать")
         self.btn_edit.setObjectName("SecondaryButton")
         self.btn_edit.clicked.connect(self.open_edit_dialog)
+
+        # НОВАЯ КНОПКА ИСТОРИИ ИЗ ТЕХНИЧЕСКОГО ПРОЕКТА
+        self.btn_history = QPushButton("📜 История заказов")
+        self.btn_history.setObjectName("SecondaryButton")
+        self.btn_history.clicked.connect(self.show_history)
         
         self.btn_del = QPushButton("🗑 Удалить")
         self.btn_del.setObjectName("DangerButton")
@@ -53,6 +58,7 @@ class ClientsTab(QWidget):
         
         btn_layout.addWidget(self.btn_add)
         btn_layout.addWidget(self.btn_edit)
+        btn_layout.addWidget(self.btn_history)
         btn_layout.addStretch()
         btn_layout.addWidget(self.btn_del)
         
@@ -74,14 +80,43 @@ class ClientsTab(QWidget):
         self.table.setRowCount(len(filtered))
         for i, c in enumerate(filtered):
             self.table.setItem(i, 0, QTableWidgetItem(str(c.id)))
-            
             n_item = QTableWidgetItem(c.name)
             n_item.setForeground(Qt.GlobalColor.blue)
             self.table.setItem(i, 1, n_item)
-            
             self.table.setItem(i, 2, QTableWidgetItem(c.phone))
             self.table.setItem(i, 3, QTableWidgetItem(c.email))
             self.table.setItem(i, 4, QTableWidgetItem(c.address))
+
+    def show_history(self):
+        row = self.table.currentRow()
+        if row < 0: return QMessageBox.warning(self, "Внимание", "Выберите клиента в таблице")
+        c_id = int(self.table.item(row, 0).text())
+        client_name = self.table.item(row, 1).text()
+        
+        orders = self.controller.get_client_orders(c_id)
+        
+        d = QDialog(self)
+        d.setWindowTitle(f"История заказов: {client_name}")
+        d.resize(700, 450)
+        l = QVBoxLayout(d)
+        
+        t = QTableWidget(len(orders), 5)
+        t.setHorizontalHeaderLabels(["№", "Дата", "Маршрут", "Стоимость", "Статус"])
+        t.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        t.verticalHeader().setVisible(False)
+        t.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        t.setAlternatingRowColors(True)
+        
+        for i, o in enumerate(orders):
+            t.setItem(i, 0, QTableWidgetItem(f"А{o.id:05d}"))
+            date_str = o.created_at.strftime('%d.%m.%Y') if o.created_at else "-"
+            t.setItem(i, 1, QTableWidgetItem(date_str))
+            t.setItem(i, 2, QTableWidgetItem(f"{o.route_start} - {o.route_end}"))
+            t.setItem(i, 3, QTableWidgetItem(f"{o.cost or 0} руб."))
+            t.setItem(i, 4, QTableWidgetItem(o.status))
+            
+        l.addWidget(t)
+        d.exec()
 
     def open_add_dialog(self):
         d = QDialog(self); d.setWindowTitle("Новый клиент"); f = QFormLayout(d)
@@ -97,11 +132,8 @@ class ClientsTab(QWidget):
             if success:
                 d.close()
                 self.load_data()
-                QMessageBox.information(self, "Успех", message)
-            else: 
-                QMessageBox.warning(self, "Ошибка валидации", message)
-        else:
-             QMessageBox.warning(self, "Ошибка", "Имя не может быть пустым")
+            else: QMessageBox.warning(self, "Ошибка валидации", message)
+        else: QMessageBox.warning(self, "Ошибка", "Имя не может быть пустым")
 
     def open_edit_dialog(self):
         row = self.table.currentRow()
@@ -119,11 +151,8 @@ class ClientsTab(QWidget):
 
     def update_client(self, d, c_id, name, phone, email, addr):
         success, message = self.controller.update(c_id, name, phone, email, addr)
-        if success: 
-            d.close()
-            self.load_data()
-        else: 
-            QMessageBox.warning(self, "Ошибка", message)
+        if success: d.close(); self.load_data()
+        else: QMessageBox.warning(self, "Ошибка", message)
 
     def delete_client(self):
         row = self.table.currentRow()

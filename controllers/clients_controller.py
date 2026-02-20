@@ -1,5 +1,6 @@
 from database.connection import get_db
-from database.models import Client
+from database.models import Client, Order
+from sqlalchemy.orm import joinedload
 from services.business_service import BusinessService
 
 class ClientsController:
@@ -7,6 +8,14 @@ class ClientsController:
         db = get_db()
         try: return db.query(Client).all()
         finally: db.close()
+
+    def get_client_orders(self, client_id):
+        db = get_db()
+        try:
+            # Подгружаем историю заказов клиента
+            return db.query(Order).options(joinedload(Order.vehicle)).filter(Order.client_id == client_id).all()
+        finally:
+            db.close()
 
     def add(self, name, phone, email, address):
         if not BusinessService.validate_client_name(name): return False, "Название/ФИО должно быть от 2 до 150 символов."
